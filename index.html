@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cleverea: Expedición a la Cima</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.5/gsap.min.js"></script>
+
+    <style>
+        :root {
+            --cleverea-blue: #00aeef;
+            --cleverea-dark-blue: #0a1e42;
+            --cleverea-bg: #020617; /* Darker, deeper space blue */
+            --cleverea-accent: #f5b800;
+            --cleverea-danger: #e74c3c;
+            --cleverea-purple: #9b59b6;
+            --cleverea-green: #2ecc71;
+            --ice-white: #f1f5f9;
+        }
+        html, body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: var(--cleverea-bg);
+            font-family: 'Poppins', sans-serif;
+        }
+        #webgl-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            outline: none;
+            z-index: 0;
+        }
+        #main-container {
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+        }
+        .section {
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: absolute;
+            top: 0;
+            left: 0;
+            color: var(--ice-white);
+            z-index: 1;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 1s ease, visibility 1s ease;
+        }
+        .section.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        .content-wrapper {
+            max-width: 1300px;
+            width: 90%;
+            text-align: center;
+        }
+        .section-act {
+            font-size: 1rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            color: var(--cleverea-blue);
+            margin-bottom: 1rem;
+        }
+        .section-title {
+            font-size: clamp(2.5rem, 5.5vw, 5.5rem);
+            font-weight: 800;
+            line-height: 1.1;
+            text-shadow: 0 0 40px rgba(0,0,0,0.7);
+        }
+        .section-subtitle {
+            font-size: clamp(1rem, 1.8vw, 1.25rem);
+            max-width: 900px;
+            margin: 1.5rem auto 0;
+            font-weight: 300;
+            opacity: 0.8;
+            line-height: 1.8;
+        }
+        .highlight-accent { color: var(--cleverea-accent); }
+        .highlight-blue { color: var(--cleverea-blue); }
+        .highlight-purple { color: var(--cleverea-purple); }
+        
+        .nav-dots {
+            position: fixed;
+            right: 30px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .nav-dot {
+            width: 12px;
+            height: 12px;
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .nav-dot:hover { background: rgba(0, 174, 239, 0.5); }
+        .nav-dot.active {
+            background: var(--cleverea-blue);
+            transform: scale(1.5);
+            box-shadow: 0 0 10px var(--cleverea-blue);
+        }
+
+        .card {
+            background: rgba(14, 30, 66, 0.5);
+            border: 1px solid rgba(0, 174, 239, 0.15);
+            backdrop-filter: blur(20px);
+            border-radius: 1.5rem;
+            padding: 1.5rem;
+            transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+            cursor: pointer;
+            text-align: left;
+            transform-style: preserve-3d;
+        }
+        .card:hover {
+            border-color: rgba(0, 174, 239, 0.7);
+            box-shadow: 0 25px 50px rgba(0,0,0,0.4);
+        }
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(3, 10, 26, 0.9);
+            backdrop-filter: blur(25px);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 100;
+            opacity: 0; visibility: hidden;
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+        }
+        .modal-overlay.active { opacity: 1; visibility: visible; }
+        .modal-content {
+            background: linear-gradient(145deg, #0d244c, #071634);
+            border-radius: 1.5rem;
+            padding: 2rem 3rem;
+            width: 95%;
+            max-width: 1200px;
+            max-height: 90vh;
+            overflow-y: auto;
+            transform: scale(0.95);
+            transition: transform 0.5s cubic-bezier(0.165, 0.84, 0.44, 1);
+            color: var(--ice-white);
+            border: 1px solid rgba(0, 174, 239, 0.2);
+            box-shadow: 0 0 80px rgba(0, 174, 239, 0.1);
+        }
+        .modal-overlay.active .modal-content { transform: scale(1); }
+        .final-cta-btn {
+            background: linear-gradient(90deg, var(--cleverea-accent), #ffc107);
+            color: var(--cleverea-dark-blue);
+            padding: 1rem 2.5rem;
+            border-radius: 50px;
+            font-size: 1.25rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 1px;
+            box-shadow: 0 10px 20px rgba(245, 184, 0, 0.3);
+            transition: all 0.3s ease; border: none;
+        }
+        .final-cta-btn:hover {
+            transform: translateY(-5px) scale(1.05);
+            box-shadow: 0 15px 30px rgba(245, 184, 0, 0.4);
+        }
+        .problem-card {
+            background: rgba(231, 76, 60, 0.05);
+            border-color: rgba(231, 76, 60, 0.2);
+        }
+        .problem-card:hover { border-color: rgba(231, 76, 60, 0.5); }
+        .solution-card {
+            background: rgba(0, 174, 239, 0.05);
+            border-color: rgba(0, 174, 239, 0.2);
+        }
+        .flow-diagram { display: flex; align-items: center; justify-content: center; gap: 1rem; margin-top: 1rem; flex-wrap: wrap; }
+        .flow-step { background: rgba(255,255,255,0.05); padding: 0.5rem 1rem; border-radius: 0.5rem; text-align: center; }
+        .flow-arrow { color: var(--cleverea-accent); }
+    </style>
+</head>
+<body>
+    <div id="webgl-canvas"></div>
+    <div id="main-container">
+
+        <!-- ACTO I: Campo Base -->
+        <section class="section active" data-section-name="intro">
+            <div class="content-wrapper">
+                <p class="section-act">Acto I: Campo Base</p>
+                <h1 class="section-title">Habéis construido un <span class="highlight-accent">Campo Base</span> formidable.</h1>
+                <p class="section-subtitle">Lo que Cleverea ha logrado es extraordinario: establecer una base sólida y reconocida a nivel del mar. La agilidad, la marca, el ecosistema inicial... todo es equipamiento de primera. Pero la verdadera expedición, el ascenso a la cima del mercado, exige una estrategia para altitudes superiores.</p>
+            </div>
+        </section>
+
+        <!-- ACTO II: Mal de Altura -->
+        <section class="section" data-section-name="tension">
+            <div class="content-wrapper">
+                 <p class="section-act">Acto II: La Aclimatación</p>
+                 <h2 class="section-title">El <span class="highlight-blue">Mal de Altura</span> Operativo.</h2>
+                 <p class="section-subtitle">A medida que se asciende, el oxígeno escasea. En los negocios, ese oxígeno es la eficiencia. Los síntomas son claros: la dependencia de los SLAs de partners es como usar las cuerdas de otra expedición. La gestión manual de siniestros es un peso muerto en la mochila. No son fallos, son las leyes de la física a 6.000 metros.</p>
+                 <div class="grid md:grid-cols-2 gap-8 mt-12 text-left">
+                     <div class="card problem-card !cursor-default">
+                         <h3 class="font-bold text-xl mb-2 flex items-center"><i data-lucide="wind" class="mr-2 text-[var(--cleverea-danger)]"></i>La Erosión del LTV</h3>
+                         <p class="text-sm opacity-80">Álvaro, el "cubo con agujeros" es real. La experiencia en siniestros, comparada con la adquisición, es una grieta en el glaciar. Cada cliente que cae en ella no solo se pierde, sino que avisa a otros del peligro. El coste de ignorar la aclimatación es la viabilidad de toda la expedición.</p>
+                     </div>
+                     <div class="card problem-card !cursor-default">
+                         <h3 class="font-bold text-xl mb-2 flex items-center"><i data-lucide="link-2-off" class="mr-2 text-[var(--cleverea-danger)]"></i>La Soledad del Líder de Cordada</h3>
+                         <p class="text-sm opacity-80">Joan y Javier, vuestra visión es la ruta, pero la ejecución depende de una cordada de partners (Wefox, SingularCover como competidores; WTW, Divina Seguros como aliados). ¿Cómo asegurar que todos avanzan a vuestro ritmo cuando la visibilidad es nula y la comunicación asíncrona? Necesitáis un sistema de comunicación y control que funcione en la "zona de la muerte".</p>
+                     </div>
+                 </div>
+            </div>
+        </section>
+
+        <!-- ACTO III: Equipamiento para la Cima -->
+        <section class="section" data-section-name="leap">
+            <div class="content-wrapper">
+                <p class="section-act">Acto III: Equipamiento para la Cima</p>
+                <h2 class="section-title">El <span class="highlight-accent">Arsenal</span> para la Zona de la Muerte.</h2>
+                <p class="section-subtitle">No se ataca el Everest con equipo de senderismo. Se necesita tecnología específica, ligera y absolutamente fiable. Este es el equipamiento que transformará los desafíos de la altitud en una ventaja competitiva decisiva.</p>
+                <div class="grid md:grid-cols-3 lg:grid-cols-3 gap-6 mt-12">
+                     <div class="card" data-modal="underwriting">
+                         <h3 class="font-bold text-lg"><i data-lucide="compass" class="inline mr-2 text-ice-white/50"></i>Piolet Cognitivo</h3>
+                         <p class="text-sm opacity-80 mt-2">Underwriting que se clava en el riesgo real, no en la superficie estadística.</p>
+                     </div>
+                     <div class="card" data-modal="claims">
+                         <h3 class="font-bold text-lg"><i data-lucide="zap" class="inline mr-2 text-ice-white/50"></i>Cuerdas Atómicas</h3>
+                         <p class="text-sm opacity-80 mt-2">Siniestros que aseguran al cliente con una velocidad y firmeza sin precedentes.</p>
+                     </div>
+                     <div class="card" data-modal="operations">
+                         <h3 class="font-bold text-lg"><i data-lucide="cpu" class="inline mr-2 text-ice-white/50"></i>Campamento Base Autónomo</h3>
+                         <p class="text-sm opacity-80 mt-2">Un back-office que opera solo, permitiendo al equipo centrarse en la ruta.</p>
+                     </div>
+                     <div class="card" data-modal="customer">
+                         <h3 class="font-bold text-lg"><i data-lucide="map" class="inline mr-2 text-ice-white/50"></i>Mapa Predictivo</h3>
+                         <p class="text-sm opacity-80 mt-2">Inteligencia que traza la ruta de cada cliente, anticipando sus movimientos.</p>
+                     </div>
+                      <div class="card" data-modal="superapp">
+                         <h3 class="font-bold text-lg"><i data-lucide="mountain-snow" class="inline mr-2 text-ice-white/50"></i>El Ecosistema de la Cima</h3>
+                         <p class="text-sm opacity-80 mt-2">La Super-App como un refugio de alta montaña: seguro y con todos los servicios.</p>
+                     </div>
+                     <div class="card" data-modal="brutal-idea">
+                         <h3 class="font-bold text-lg highlight-purple"><i data-lucide="flag" class="inline mr-2"></i>La Ruta Inexplorada</h3>
+                         <p class="text-sm opacity-80 mt-2">La estrategia que planta la bandera en una nueva cumbre.</p>
+                     </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ACTO IV: La Cima -->
+        <section class="section" data-section-name="endgame">
+            <div class="content-wrapper">
+                <p class="section-act">Acto IV: La Cima</p>
+                <h2 class="section-title">La Vista desde el <span class="highlight-blue">Everest</span>:<br>ClevereaOS</h2>
+                <p class="section-subtitle">La cima no es el final. Es un punto de vista que nadie más tiene. Desde aquí, la montaña entera se ve diferente. El equipamiento desarrollado para vuestro ascenso es tan avanzado que otras expediciones querrán usarlo. Cleverea deja de ser un alpinista más para convertirse en el proveedor oficial de la expedición al futuro del seguro.</p>
+            </div>
+        </section>
+        
+        <!-- ACTO V: La Decisión -->
+        <section class="section" data-section-name="decision">
+            <div class="content-wrapper">
+                <p class="section-act">Acto V: El Catalizador</p>
+                <h2 class="section-title">Toda expedición empieza<br>con un <span class="highlight-accent">primer paso</span>.</h2>
+                <p class="section-subtitle">El mapa está trazado. El equipo está listo. La cumbre espera. La única pregunta que queda no es si es posible, sino si la voluntad de empezar la ascensión es tan grande como la visión.</p>
+                <button id="final-cta" class="final-cta-btn mt-12">Iniciar la Expedición</button>
+            </div>
+        </section>
+
+    </div>
+    <div class="nav-dots"></div>
+
+    <!-- Modals -->
+    <div id="modal-container">
+        <!-- Underwriting Modal -->
+        <div id="modal-underwriting" class="modal-overlay">
+            <div class="modal-content">
+                <h3 class="text-4xl font-bold mb-2 text-white">Piolet Cognitivo: Underwriting de Precisión</h3>
+                <p class="text-lg opacity-70 mb-8">Clavarse en el riesgo real para asegurar una base firme a cada paso.</p>
+                <div class="grid md:grid-cols-2 gap-8">
+                    <div class="solution-card p-6 rounded-xl">
+                        <h4 class="font-bold text-xl mb-4 flex items-center"><i data-lucide="brain-circuit" class="mr-3 text-[var(--cleverea-blue)]"></i>Agente de Análisis Documental</h4>
+                        <p class="opacity-80">Un agente autónomo basado en <strong class="highlight-blue">Gemini 2.5 Advanced Pro</strong> ingiere, comprende y estructura cualquier documento (nóminas, DNI, contratos) en menos de un segundo. No es OCR, es cognición. Valida la información contra fuentes externas y detecta inconsistencias que un humano pasaría por alto.</p>
+                    </div>
+                    <div class="solution-card p-6 rounded-xl">
+                        <h4 class="font-bold text-xl mb-4 flex items-center"><i data-lucide="move-3d" class="mr-3 text-[var(--cleverea-blue)]"></i>Modelo de Riesgo Dinámico</h4>
+                        <p class="opacity-80">Los datos del agente cognitivo, junto a datos telemáticos y de comportamiento, alimentan un modelo de Machine Learning que recalcula la prima <strong class="highlight-blue">en cada interacción del cliente</strong>. El precio deja de ser una foto anual para convertirse en un reflejo vivo del riesgo actual.</p>
+                    </div>
+                </div>
+                 <div class="mt-8 bg-black/20 p-6 rounded-xl">
+                    <h4 class="font-bold text-xl mb-2 text-[var(--cleverea-accent)]">Ruta de Orquestación (n8n)</h4>
+                    <div class="flow-diagram">
+                        <div class="flow-step">Solicitud</div>
+                        <i data-lucide="arrow-right" class="flow-arrow"></i>
+                        <div class="flow-step">Agente Gemini</div>
+                        <i data-lucide="arrow-right" class="flow-arrow"></i>
+                        <div class="flow-step">APIs Externas</div>
+                        <i data-lucide="arrow-right" class="flow-arrow"></i>
+                        <div class="flow-step">Modelo ML</div>
+                        <i data-lucide="arrow-right" class="flow-arrow"></i>
+                        <div class="flow-step text-[var(--cleverea-green)]">Póliza Emitida</div>
+                    </div>
+                    <p class="opacity-80 mt-4"><strong>Tiempo total del ciclo: 4 segundos.</strong></p>
+                </div>
+                <button class="modal-close absolute top-6 right-6 text-white/50 hover:text-white transition-colors"><i data-lucide="x" class="w-8 h-8"></i></button>
+            </div>
+        </div>
+        
+        <!-- Claims Modal -->
+        <div id="modal-claims" class="modal-overlay">
+            <div class="modal-content">
+                <h3 class="text-4xl font-bold mb-2 text-white">Cuerdas Atómicas: Siniestros Instantáneos</h3>
+                <p class="text-lg opacity-70 mb-8">Una línea de vida que no solo sostiene, sino que impulsa hacia arriba.</p>
+                <div class="grid md:grid-cols-2 gap-8">
+                    <div class="solution-card p-6 rounded-xl">
+                        <h4 class="font-bold text-xl mb-4 flex items-center"><i data-lucide="camera" class="mr-3 text-[var(--cleverea-blue)]"></i>Triaje y Valoración por IA Visual</h4>
+                        <p class="opacity-80">El cliente sube una foto del daño. Una IA visual (similar a la tecnología de <strong class="highlight-blue">Tractable</strong>) no solo identifica el daño, sino que lo cruza con el catálogo de piezas y tarifas de la red de talleres para generar una valoración <strong class="highlight-blue">en 3.5 segundos</strong>. El sistema detecta el fraude analizando artefactos en la imagen que son invisibles al ojo humano.</p>
+                    </div>
+                    <div class="solution-card p-6 rounded-xl">
+                        <h4 class="font-bold text-xl mb-4 flex items-center"><i data-lucide="zap" class="mr-3 text-[var(--cleverea-blue)]"></i>Resolución Paramétrica Automática</h4>
+                        <p class="opacity-80">Para siniestros de bajo valor, el sistema se salta la reparación. Una vez valorado el daño, se ofrece al cliente una <strong class="highlight-blue">liquidación instantánea</strong> vía Bizum. El cliente tiene el dinero en su cuenta antes de que termine la llamada. La satisfacción se dispara y el coste de gestión se desploma.</p>
+                    </div>
+                </div>
+                <div class="mt-8 bg-black/20 p-6 rounded-xl">
+                    <h4 class="font-bold text-xl mb-4 text-[var(--cleverea-accent)]">Sherpa Cognitivo de Siniestros</h4>
+                    <p class="opacity-80">Un agente conversacional basado en <strong class="highlight-accent">Claude 4 Opus</strong>, entrenado con todas las pólizas y el historial de siniestros. Guía al cliente con empatía, le informa proactivamente en cada paso y, lo más importante, tiene la autoridad para <strong class="highlight-accent">ejecutar decisiones</strong> (como ordenar la liquidación) sin escalar a un humano.</p>
+                </div>
+                <button class="modal-close absolute top-6 right-6 text-white/50 hover:text-white transition-colors"><i data-lucide="x" class="w-8 h-8"></i></button>
+            </div>
+        </div>
+
+        <!-- Operations Modal -->
+        <div id="modal-operations" class="modal-overlay">
+             <div class="modal-content">
+                <h3 class="text-4xl font-bold mb-2 text-white">Campamento Base Autónomo: Back-Office Cero-Humano</h3>
+                <p class="text-lg opacity-70 mb-8">Un campamento que se monta y gestiona solo, liberando a la expedición para el ascenso.</p>
+                <div class="grid md:grid-cols-2 gap-8">
+                    <div class="solution-card p-6 rounded-xl">
+                        <h4 class="font-bold text-xl mb-4 flex items-center"><i data-lucide="cpu" class="mr-3 text-[var(--cleverea-blue)]"></i>n8n como Intendente de la Expedición</h4>
+                        <p class="opacity-80">n8n deja de ser una herramienta de automatización para convertirse en el <strong class="highlight-blue">sistema operativo del negocio</strong>. Cada proceso (facturación, comunicación, reconciliación, reporting) es un workflow que se ejecuta, monitoriza y optimiza de forma autónoma. Los humanos no ejecutan tareas, diseñan y supervisan los workflows.</p>
+                    </div>
+                    <div class="solution-card p-6 rounded-xl">
+                        <h4 class="font-bold text-xl mb-4 flex items-center"><i data-lucide="users" class="mr-3 text-[var(--cleverea-blue)]"></i>"Digital Twins" de Alpinistas</h4>
+                        <p class="opacity-80">Por cada cliente, se crea un "gemelo digital": un objeto de datos dinámico que contiene todo su historial, interacciones, modelos de riesgo y predicciones de comportamiento (churn, LTV, propensión a la compra). Un agente de IA (<strong class="highlight-blue">Grok 4</strong> por su capacidad de análisis en tiempo real) monitoriza estos gemelos y activa acciones proactivas.</p>
+                    </div>
+                </div>
+                <div class="mt-8 bg-black/20 p-6 rounded-xl">
+                    <h4 class="font-bold text-xl mb-4 text-[var(--cleverea-accent)]">El Fin de los Equipos de Apoyo</h4>
+                    <p class="opacity-80">Este modelo disuelve los silos. No hay un "departamento de siniestros" o de "facturación". Hay <strong class="highlight-accent">"cordadas" multidisciplinares</strong> (ingenieros, expertos en seguros, diseñadores) cuyo único objetivo es mejorar la eficiencia y la inteligencia de los workflows autónomos que gestionan esas áreas.</p>
+                </div>
+                <button class="modal-close absolute top-6 right-6 text-white/50 hover:text-white transition-colors"><i data-lucide="x" class="w-8 h-8"></i></button>
+            </div>
+        </div>
+
+        <!-- Customer Intelligence Modal -->
+        <div id="modal-customer" class="modal-overlay">
+            <div class="modal-content">
+                <h3 class="text-4xl font-bold mb-2 text-white">Mapa Predictivo: Inteligencia de Cliente</h3>
+                <p class="text-lg opacity-70 mb-8">Trazar la ruta de cada cliente para anticipar grietas y encontrar atajos.</p>
+                 <div class="grid md:grid-cols-2 gap-8">
+                    <div class="solution-card p-6 rounded-xl">
+                        <h4 class="font-bold text-xl mb-4 flex items-center"><i data-lucide="activity" class="mr-3 text-[var(--cleverea-blue)]"></i>Detección de "Fatiga de Expedición"</h4>
+                        <p class="opacity-80">El "gemelo digital" de cada cliente analiza cientos de micro-interacciones. Un modelo predice la probabilidad de "fatiga" (churn) en los próximos 30 días y activa <strong class="highlight-blue">automáticamente</strong> un workflow de "avituallamiento" personalizado en n8n (una oferta, una llamada de un especialista, etc.).</p>
+                    </div>
+                    <div class="solution-card p-6 rounded-xl">
+                        <h4 class="font-bold text-xl mb-4 flex items-center"><i data-lucide="crosshair" class="mr-3 text-[var(--cleverea-blue)]"></i>Identificación de Nuevas Rutas (LTV)</h4>
+                        <p class="opacity-80">El sistema no solo previene la baja, sino que identifica oportunidades de equipamiento adicional (<em class="highlight-blue">cross-sell</em>). ¿El cliente ha contratado un seguro de bici? El sistema sabe que la probabilidad de necesitar uno de viaje para una competición aumenta y presenta una oferta hiper-personalizada.</p>
+                    </div>
+                </div>
+                <button class="modal-close absolute top-6 right-6 text-white/50 hover:text-white transition-colors"><i data-lucide="x" class="w-8 h-8"></i></button>
+            </div>
+        </div>
+
+        <!-- Super-App Modal -->
+        <div id="modal-superapp" class="modal-overlay">
+            <div class="modal-content">
+                <h3 class="text-4xl font-bold mb-2 text-white">El Ecosistema de la Cima: La Super-App</h3>
+                <p class="text-lg opacity-70 mb-8">Un refugio de alta montaña no es una colección de habitaciones, es un sistema de soporte vital.</p>
+                <div class="grid md:grid-cols-2 gap-8">
+                    <div class="solution-card p-6 rounded-xl">
+                        <h4 class="font-bold text-xl mb-4 flex items-center"><i data-lucide="link" class="mr-3 text-[var(--cleverea-blue)]"></i>Sinergia de Datos, no de Productos</h4>
+                        <p class="opacity-80">El valor no está en vender seguros y fibra. Está en usar los datos de uso de la fibra para <strong class="highlight-blue">ajustar el riesgo del seguro de hogar</strong> (un cliente con alto consumo de streaming probablemente pasa más tiempo en casa, reduciendo el riesgo de robo). La app se convierte en un centro de datos que genera valor cruzado.</p>
+                    </div>
+                    <div class="solution-card p-6 rounded-xl">
+                        <h4 class="font-bold text-xl mb-4 flex items-center"><i data-lucide="shopping-cart" class="mr-3 text-[var(--cleverea-blue)]"></i>Marketplace de Servicios de Confianza</h4>
+                        <p class="opacity-80">La app evoluciona para ser un marketplace curado de servicios para el hogar (reparadores, energía, domótica). Cleverea no vende el servicio, <strong class="highlight-blue">garantiza la calidad y el precio</strong> a través de su plataforma, llevándose una comisión. El seguro de hogar se convierte en la puerta de entrada a un ecosistema de servicios de confianza.</p>
+                    </div>
+                </div>
+                <button class="modal-close absolute top-6 right-6 text-white/50 hover:text-white transition-colors"><i data-lucide="x" class="w-8 h-8"></i></button>
+            </div>
+        </div>
+        
+        <!-- Brutal Idea Modal -->
+        <div id="modal-brutal-idea" class="modal-overlay">
+            <div class="modal-content">
+                <h3 class="text-4xl font-bold mb-2 text-[var(--cleverea-purple)]">La Ruta Inexplorada: ClevereaOS</h3>
+                <p class="text-lg opacity-70 mb-8">La estrategia definitiva no es plantar la bandera. Es vender los mapas.</p>
+                 <div class="mt-8 bg-black/20 p-6 rounded-xl">
+                    <h4 class="font-bold text-xl mb-4 text-center text-[var(--cleverea-accent)]">El Flywheel de Dominación</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center text-center">
+                        <div class="flow-step">
+                            <h5 class="font-bold">B2C (Laboratorio)</h5>
+                            <p class="text-sm opacity-80">Crece la base de clientes, generando datos y probando innovaciones.</p>
+                        </div>
+                        <div class="flex justify-center my-4 md:my-0"><i data-lucide="arrow-right-left" class="flow-arrow w-10 h-10"></i></div>
+                        <div class="flow-step">
+                            <h5 class="font-bold">ClevereaOS (Plataforma)</h5>
+                            <p class="text-sm opacity-80">El stack tecnológico (IA, n8n) se empaqueta como un SaaS B2B.</p>
+                        </div>
+                    </div>
+                     <p class="opacity-80 mt-6">Cleverea se convierte en una empresa de dos velocidades: <br><strong>1. El negocio B2C</strong>, que sigue creciendo y sirve como el laboratorio de pruebas y la fuente de datos más rica del mercado. <br><strong>2. El negocio B2B (ClevereaOS)</strong>, una plataforma de altísimo margen que se convierte en el estándar de la industria. Cleverea ya no compite con otras aseguradoras; <strong class="highlight-accent">se convierte en la infraestructura sobre la que compiten</strong>. Es el foso competitivo definitivo.</p>
+                </div>
+                <button class="modal-close absolute top-6 right-6 text-white/50 hover:text-white transition-colors"><i data-lucide="x" class="w-8 h-8"></i></button>
+            </div>
+        </div>
+
+        <!-- Final Action Modal -->
+        <div id="modal-final-action" class="modal-overlay">
+            <div class="modal-content text-center !bg-transparent !border-none !shadow-none">
+                <h3 class="text-5xl font-bold text-white">Parleu amb l'Albert ja!</h3>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+
+            // --- THREE.JS BACKGROUND ---
+            let scene, camera, renderer, particles;
+            const mouse = new THREE.Vector2();
+
+            function initThree() {
+                try {
+                    scene = new THREE.Scene();
+                    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+                    camera.position.z = 5;
+
+                    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                    renderer.setSize(window.innerWidth, window.innerHeight);
+                    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                    document.getElementById('webgl-canvas').appendChild(renderer.domElement);
+
+                    const particleCount = 1500;
+                    const positions = new Float32Array(particleCount * 3);
+                    for (let i = 0; i < particleCount; i++) {
+                        positions[i * 3] = (Math.random() - 0.5) * 20;
+                        positions[i * 3 + 1] = (Math.random() - 0.5) * 20;
+                        positions[i * 3 + 2] = (Math.random() - 0.5) * 20;
+                    }
+                    const particlesGeometry = new THREE.BufferGeometry();
+                    particlesGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                    const particlesMaterial = new THREE.PointsMaterial({
+                        color: 'rgba(0, 174, 239, 0.15)',
+                        size: 0.02,
+                        blending: THREE.AdditiveBlending,
+                        transparent: true,
+                        depthWrite: false
+                    });
+                    particles = new THREE.Points(particlesGeometry, particlesMaterial);
+                    scene.add(particles);
+
+                    window.addEventListener('resize', onWindowResize);
+                    window.addEventListener('mousemove', onMouseMove);
+                    animate();
+                } catch (e) { console.error("Three.js failed:", e); }
+            }
+
+            function onWindowResize() {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            }
+
+            function onMouseMove(event) {
+                mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+                mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            }
+
+            function animate() {
+                requestAnimationFrame(animate);
+                const elapsedTime = Date.now() * 0.00002;
+                if (particles) {
+                    particles.rotation.y = elapsedTime;
+                    particles.rotation.x = elapsedTime * 0.5;
+                    camera.position.x += (mouse.x * 0.1 - camera.position.x) * 0.02;
+                    camera.position.y += (-mouse.y * 0.1 - camera.position.y) * 0.02;
+                    camera.lookAt(scene.position);
+                }
+                renderer.render(scene, camera);
+            }
+
+            // --- NAVIGATION & ANIMATION LOGIC ---
+            const sections = gsap.utils.toArray('.section');
+            const navDotsContainer = document.querySelector('.nav-dots');
+            let currentSectionIndex = 0;
+            let isAnimating = false;
+
+            sections.forEach((section, index) => {
+                const dot = document.createElement('div');
+                dot.classList.add('nav-dot');
+                dot.dataset.index = index;
+                navDotsContainer.appendChild(dot);
+                dot.addEventListener('click', () => goToSection(index));
+            });
+            const navDots = gsap.utils.toArray('.nav-dot');
+
+            function updateNavDots() {
+                navDots.forEach(dot => dot.classList.remove('active'));
+                navDots[currentSectionIndex].classList.add('active');
+            }
+
+            function goToSection(index) {
+                if (isAnimating || index < 0 || index >= sections.length || index === currentSectionIndex) return;
+                
+                isAnimating = true;
+                const from = sections[currentSectionIndex];
+                const to = sections[index];
+
+                gsap.timeline({ onComplete: () => { isAnimating = false; currentSectionIndex = index; updateNavDots(); }})
+                    .to(from, { opacity: 0, visibility: 'hidden', duration: 0.6, ease: 'power2.in' })
+                    .to(to, { opacity: 1, visibility: 'visible', duration: 0.6, ease: 'power2.out' }, '-=0.3');
+            }
+            
+            updateNavDots();
+
+            window.addEventListener('wheel', (e) => {
+                if (isAnimating) return;
+                const direction = e.deltaY > 0 ? 1 : -1;
+                goToSection(currentSectionIndex + direction);
+            });
+
+            window.addEventListener('keydown', (e) => {
+                if(isAnimating) return;
+                if (e.key === 'ArrowDown') goToSection(currentSectionIndex + 1);
+                else if (e.key === 'ArrowUp') goToSection(currentSectionIndex - 1);
+            });
+
+            // --- 3D CARD TILT EFFECT ---
+            document.querySelectorAll('.card').forEach(card => {
+                card.addEventListener('mousemove', (e) => {
+                    const rect = card.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    const { width, height } = rect;
+                    const rotateX = (y / height - 0.5) * -20;
+                    const rotateY = (x / width - 0.5) * 20;
+                    
+                    gsap.to(card, {
+                        rotationX: rotateX,
+                        rotationY: rotateY,
+                        scale: 1.05,
+                        duration: 0.7,
+                        ease: 'power3.out',
+                        transformPerspective: 1000
+                    });
+                });
+                card.addEventListener('mouseleave', () => {
+                    gsap.to(card, {
+                        rotationX: 0,
+                        rotationY: 0,
+                        scale: 1,
+                        duration: 0.7,
+                        ease: 'elastic.out(1, 0.5)'
+                    });
+                });
+            });
+
+            // --- MODAL LOGIC ---
+            const modalTriggers = document.querySelectorAll('.card[data-modal]');
+            const modalContainer = document.getElementById('modal-container');
+            const finalCtaBtn = document.getElementById('final-cta');
+
+            const openModal = (modalId) => {
+                const modal = document.getElementById(modalId);
+                if (modal) {
+                    modal.classList.add('active');
+                    isAnimating = true; // Prevent scrolling
+                }
+            };
+
+            const closeModal = (modal) => {
+                if (modal && modal.classList.contains('active')) {
+                    modal.classList.remove('active');
+                    isAnimating = false; // Allow scrolling again
+                }
+            };
+
+            modalTriggers.forEach(trigger => {
+                trigger.addEventListener('click', () => {
+                    openModal(`modal-${trigger.getAttribute('data-modal')}`);
+                });
+            });
+            
+            finalCtaBtn.addEventListener('click', () => {
+                openModal('modal-final-action');
+            });
+
+            modalContainer.addEventListener('click', (event) => {
+                if (event.target.classList.contains('modal-overlay')) {
+                    closeModal(event.target);
+                }
+            });
+
+            document.querySelectorAll('.modal-close').forEach(button => {
+                button.addEventListener('click', () => {
+                    closeModal(button.closest('.modal-overlay'));
+                });
+            });
+
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') {
+                    document.querySelectorAll('.modal-overlay.active').forEach(closeModal);
+                }
+            });
+
+            // --- INITIALIZATION ---
+            initThree();
+        });
+    </script>
+</body>
+</html>
